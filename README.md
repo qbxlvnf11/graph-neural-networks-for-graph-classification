@@ -8,6 +8,10 @@ Description
 How to use
 =============
 
+```
+python main.py --load_data_path . --save_data_path .
+```
+
 
 Contents
 =============
