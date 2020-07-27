@@ -4,15 +4,13 @@ Description
 #### - Graph Neural Networks (GNNs) for Graph Classification
   - Implementation of various neural graph classification model (not node classification)
   - Training and test of various Graph Neural Networks (GNNs) models using graph classification datasets
-  - Options: references to help of argparse
-#### - Continue to add new graph classification models
 
 Contents
 =============
 
 #### - Available Model
-  - Graph Convolution Networks (GCNs):
-  - Graph Attention Networks (GATs):
+  - Graph Convolution Networks (GCNs): https://arxiv.org/abs/1609.02907
+  - Graph Attention Networks (GATs): https://arxiv.org/abs/1710.10903
   
 #### - Available Datasets
   - IMDB-BINARY
