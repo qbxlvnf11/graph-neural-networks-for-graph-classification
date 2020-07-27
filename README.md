@@ -5,6 +5,13 @@ Description
   - Implementation of various neural graph classification model (not node classification)
   - Training and test of various Graph Neural Networks (GNNs) models using graph classification datasets
 
+How to use
+=============
+
+```
+python train.py --model_list GCN GAT --dataset_list ALL --readout_list ALL --n_agg_layer 2 --agg_hidden 32
+```
+
 Contents
 =============
 
@@ -13,8 +20,9 @@ Contents
   - Graph Attention Networks (GATs): https://arxiv.org/abs/1710.10903
   
 #### - Available Datasets
-  - IMDB-BINARY
-  - IMDB-MULTI
+  - Node labels X, edge labels X: IMDB-BINARY, IMDB-MULTI
+  - Node labels O, edge labels X: PROTEINS, ENZYMES, NCI1
+  - Node labels O, edge labels O: MUTAG
   
 #### - Available Readout
   - Basic readout: max, avg, sum
