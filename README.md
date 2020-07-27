@@ -9,7 +9,7 @@ How to use
 =============
 
 ```
-python main.py --load_data_path . --save_data_path .
+python train.py --model_list GCN GAT --dataset_list ALL --readout_list ALL --n_agg_layer 2 -- agg_hidden 32
 ```
 
 
