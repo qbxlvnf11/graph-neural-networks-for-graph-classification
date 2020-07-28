@@ -35,7 +35,7 @@ References
 
 https://github.com/bknyaz/graph_nn
 
-Contact
+Author
 =============
 
 #### - LinkedIn: https://www.linkedin.com/in/taeyong-kong-016bb2154
