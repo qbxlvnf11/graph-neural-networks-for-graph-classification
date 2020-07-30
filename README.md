@@ -7,7 +7,7 @@ Description
 
 How to use
 =============
-
+#### - Details of parameter: references to help of argparse
 ```
 python train.py --model_list GCN GAT --dataset_list ALL --readout_list ALL --n_agg_layer 2 -- agg_hidden 32
 ```
