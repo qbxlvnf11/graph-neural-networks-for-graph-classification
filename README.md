@@ -19,6 +19,12 @@ Contents
 #### - Available Model
   - Graph Convolution Networks (GCNs): https://arxiv.org/abs/1609.02907
   - Graph Attention Networks (GATs): https://arxiv.org/abs/1710.10903
+  - Graph Isomorphism Networks (GINs): https://arxiv.org/pdf/1810.00826.pdf
+  - Graph UNet: https://arxiv.org/pdf/1905.05178.pdf
+  - Graph ResNet
+  - Graph DenseNet
+  - Node RandomWalk Network
+  - Expanded Spatial Graph Embedding Network
   
 #### - Available Datasets
   - Node labels X, edge labels X: IMDB-BINARY, IMDB-MULTI
