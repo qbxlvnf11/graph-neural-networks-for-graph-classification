@@ -22,7 +22,7 @@ class GCN(nn.Module):
         
         # Graph convolution layer
         self.graph_convolution_layers = []
-        for i in range(self.n_layer):
+        for i in range(n_layer):
            if i == 0:
              self.graph_convolution_layers.append(GraphConvolutionLayer(n_feat, agg_hidden, device))
            else:
@@ -34,14 +34,14 @@ class GCN(nn.Module):
     
     def forward(self, data):
         x, adj = data[:2]
-        
-        # Graph convolution layer
+
         for i in range(self.n_layer):
+           # Graph convolution layer
            x = F.relu(self.graph_convolution_layers[i](x, adj))
                       
            # Dropout
            if i != self.n_layer - 1:
-             F.dropout(x, p=self.dropout, training=self.training)
+             x = F.dropout(x, p=self.dropout, training=self.training)
         
         # Readout
         x = readout_function(x, self.readout)
@@ -57,8 +57,8 @@ class GCN(nn.Module):
         
         for i in range(self.n_layer):
             layers += str(self.graph_convolution_layers[i]) + '\n'
-        layers += str(self.fc1)
-        layers += str(self.fc2)
+        layers += str(self.fc1) + '\n'
+        layers += str(self.fc2) + '\n'
         return layers
             
             
