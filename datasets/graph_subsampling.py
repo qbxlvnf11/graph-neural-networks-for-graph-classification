@@ -86,11 +86,12 @@ def graph_subsampling_random_edge_removal(adj, rate, log=True):
         
     return subsampling_graph_adj
 
-def graph_dataset_subsampling(adj_list, node_features_list, label_list, rate, repeat_count, node_removal=True, log=True):
+def graph_dataset_subsampling(adj_list, node_features_list, label_list, max_neighbor_list, rate, repeat_count, node_removal=True, log=True):
     
     subsampling_adj_list = []
     subsampling_node_features_list = []
     subsampling_label_list = []
+    subsampling_max_neighbor_list = []
     
     for i in range(len(adj_list)):
         for a in range(repeat_count):
@@ -101,5 +102,6 @@ def graph_dataset_subsampling(adj_list, node_features_list, label_list, rate, re
             
             subsampling_node_features_list.append(node_features_list[i])
             subsampling_label_list.append(label_list[i])
+            subsampling_max_neighbor_list.append(max_neighbor_list[i])
 
-    return np.array(subsampling_adj_list), np.array(subsampling_node_features_list), np.array(subsampling_label_list)
+    return np.array(subsampling_adj_list), np.array(subsampling_node_features_list), np.array(subsampling_label_list), subsampling_max_neighbor_list
