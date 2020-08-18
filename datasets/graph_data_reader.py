@@ -7,6 +7,7 @@ import copy
 import torch
 
 from .graph_subsampling import graph_dataset_subsampling
+from .graph_node_random_walk import get_node_random_walk
 
 """
 References: https://github.com/bknyaz/graph_nn
@@ -18,9 +19,16 @@ class DataReader():
     Class to read the txt files containing all data of the dataset
     '''
     def __init__(self,
-                 data_dir,  # folder with txt files
+                 data_dir,  # Folder with txt files
+                 random_walk,
+                 node2vec_hidden=64,
+                 walk_length=20,
+                 num_walks=10,
+                 p=0.65,
+                 q=0.35,
+                 workers=3,
                  rnd_state=None,
-                 use_cont_node_attr=False,  # use or not additional float valued node attributes available in some datasets
+                 use_cont_node_attr=False,  # Use or not additional float valued node attributes available in some datasets
                  folds=10):
 
         self.data_dir = data_dir
@@ -31,11 +39,19 @@ class DataReader():
         print('data path:', self.data_dir)
         
         data = {}
+        
+        # Read adj list
         nodes, graphs = self.read_graph_nodes_relations(list(filter(lambda f: f.find('graph_indicator') >= 0, files))[0]) 
         data['adj_list'] = self.read_graph_adj(list(filter(lambda f: f.find('_A') >= 0, files))[0], nodes, graphs)        
-        
+                
         print('complete to build adjacency matrix list')
         
+        # Make degree_features and max neighbor list
+        degree_features = self.get_node_features_degree(data['adj_list'])
+        data['max_neighbor_list'] = self.get_max_neighbor(degree_features)
+        
+        print('complete to build max neighbor list')
+       
         # Read features or make features
         if len(list(filter(lambda f: f.find('node_labels') >= 0, files))) != 0:
             print('node label: node label in dataset')
@@ -43,11 +59,13 @@ class DataReader():
                                                      nodes, graphs, fn=lambda s: int(s.strip()))
         else:
             print('node label: degree of nodes')
-            data['features'] = self.get_node_features_degree(data['adj_list'])      
+            data['features'] = degree_features
+            
         print('complete to build node features list')
         
         data['targets'] = np.array(self.parse_txt_file(list(filter(lambda f: f.find('graph_labels') >= 0, files))[0],
                                                        line_parse_fn=lambda s: int(float(s.strip()))))
+                                                       
         print('complete to build targets list')
         
         if self.use_cont_node_attr:
@@ -56,12 +74,11 @@ class DataReader():
         
         features, n_edges, degrees = [], [], []
         for sample_id, adj in enumerate(data['adj_list']):
-            N = len(adj)  # number of nodes
+            N = len(adj) # Number of nodes
             if data['features'] is not None:
                 assert N == len(data['features'][sample_id]), (N, len(data['features'][sample_id]))
-            n = np.sum(adj)  # total sum of edges
-#             assert n % 2 == 0, n
-            n_edges.append( int(n / 2) )  # undirected edges, so need to divide by 2
+            n = np.sum(adj) # Total sum of edges
+            n_edges.append( int(n / 2) ) # Undirected edges, so need to divide by 2
             if not np.allclose(adj, adj.T):
                 print(sample_id, 'not symmetric')
             degrees.extend(list(np.sum(adj, 1)))
@@ -70,7 +87,7 @@ class DataReader():
         # Create features over graphs as one-hot vectors for each node
         features_all = np.concatenate(features)
         features_min = features_all.min()
-        features_dim = int(features_all.max() - features_min + 1)  # number of possible values
+        features_dim = int(features_all.max() - features_min + 1) # Number of possible values
         
         features_onehot = []
         for i, x in enumerate(features):
@@ -85,9 +102,9 @@ class DataReader():
             features_dim = features_onehot[0].shape[1]
             
         shapes = [len(adj) for adj in data['adj_list']]
-        labels = data['targets']        # graph class labels
-        labels -= np.min(labels)        # to start from 0
-        N_nodes_max = np.max(shapes)    
+        labels = data['targets'] # Graph class labels
+        labels -= np.min(labels) # To start from 0
+        N_nodes_max = np.max(shapes)
 
         classes = np.unique(labels)
         n_classes = len(classes)
@@ -115,7 +132,7 @@ class DataReader():
         for u in np.unique(features_all):
             print('feature {}, count {}/{}'.format(u, np.count_nonzero(features_all == u), len(features_all)))
         
-        N_graphs = len(labels)  # number of samples (graphs) in data
+        N_graphs = len(labels)  # Number of samples (graphs) in data
         assert N_graphs == len(data['adj_list']) == len(features_onehot), 'invalid data'
 
         # Create test sets first
@@ -129,10 +146,16 @@ class DataReader():
 
         data['features_onehot'] = features_onehot
         data['targets'] = labels
-        data['splits'] = splits 
-        data['N_nodes_max'] = np.max(shapes)  # max number of nodes
+        data['splits'] = splits
+        data['N_nodes_max'] = np.max(shapes)  # Max number of nodes
         data['features_dim'] = features_dim
         data['n_classes'] = n_classes
+        
+        # Make node randomwalk
+        if random_walk:
+            print('building node randomwalk list ...')
+            data['random_walks'] = get_node_random_walk(data['features_onehot'], data['adj_list'], node2vec_hidden, walk_length, num_walks, p, q, workers)
+            print('complete to build node randomwalk list')
         
         self.data = data
 
@@ -204,7 +227,7 @@ class DataReader():
             node_features[graph_id][ind[0]] = x
         node_features_lst = [node_features[graph_id] for graph_id in sorted(list(graphs.keys()))]
         return node_features_lst
-    
+
     def get_node_features_degree(self, adj_list):
         node_features_list = []
 
@@ -212,19 +235,81 @@ class DataReader():
             sub_list = []
             for feature in nx.from_numpy_matrix(np.array(adj)).degree():
                 sub_list.append(feature[1])
-            node_features_list.append(sub_list)
+            node_features_list.append(np.array(sub_list))
 
         return node_features_list
+        
+    def get_max_neighbor(self, degree_list):
+        max_neighbor_list = []
+        
+        for degrees in degree_list:
+            max_neighbor_list.append(int(max(degrees)))
+
+        return max_neighbor_list
+
+    def get_node_random_walk(self, x_list, adj_list):
+        node_random_walk_list = []
+        
+        for i, adj in enumerate(adj_list):
+            
+            if i % 20 == 0:
+                print('node_random_walk: ', i)
+            
+            node_random_walk_list2 = []
+            
+            walk_dic = {}
+            G = nx.Graph(adj)
+            
+            node2vec = Node2Vec(graph=G, # The first positional argument has to be a networkx graph. Node names must be all integers or all strings. On the output model they will always be strings.
+                        dimensions=self.node2vec_hidden, # Embedding dimensions (default: 128)
+                        walk_length=self.walk_length, # number of nodes in each walks 
+                        num_walks=2, # Number of walks per node (default: 10)
+                        p=self.p, # 전 꼭짓점으로 돌아올 가능성, 얼마나 주변을 잘 탐색하는가
+                        q=self.q, # 전 꼭짓점으로부터 멀어질 가능성, 얼마나 새로운 곳을 잘 탐색하는가
+                        weight_key=None, # On weighted graphs, this is the key for the weight attribute (default: 'weight')
+                        workers=self.workers, # Number of workers for parallel execution (default: 1)
+                        quiet = True
+                       )
+
+            # Dic key: target node number, dic value: random walks of target node
+            for random_walk in node2vec.walks:
+                if not int(random_walk[0]) in walk_dic:
+                    walk_dic[int(random_walk[0])] = []
+                walk_dic[int(random_walk[0])].append(random_walk)
+            
+            # Get index of one value in one-hot vector
+            hot_index = np.where(x_list[i] == 1.0)[1]
+            
+            # Unify to Node Feature
+            for a in range(len(adj)):
+                walks = walk_dic[a]
+                walks_list = []
+                for walk in walks:
+                    walk2 = []
+                    for node in walk:
+                        if not int(node) >= len(hot_index):
+                            walk2.append(float(hot_index[int(node)]))
+                
+                    # Padding and append
+                    walks_list.append([0.0] * (self.walk_length - len(walk2)) + walk2)
+
+                node_random_walk_list2.append(np.array(walks_list))
+            node_random_walk_list.append(np.array(node_random_walk_list2))
+            
+        return node_random_walk_list
 
 class GraphData(torch.utils.data.Dataset):
     def __init__(self,
                  fold_id,
                  datareader,
                  split,
+                 random_walk,
                  n_graph_subsampling,
                  graph_node_subsampling,
                  graph_subsampling_rate):
-
+        
+        self.random_walk = random_walk
+        
         self.set_fold(datareader.data, split, fold_id, n_graph_subsampling, graph_node_subsampling, graph_subsampling_rate)
 
     def set_fold(self, data, split, fold_id, n_graph_subsampling, graph_node_subsampling, graph_subsampling_rate):
@@ -234,15 +319,20 @@ class GraphData(torch.utils.data.Dataset):
         self.features_dim = data['features_dim']
         self.idx = data['splits'][fold_id][split]
         
-        # use deepcopy to make sure we don't alter objects in folds
+        
+        # Use deepcopy to make sure we don't alter objects in folds
         self.labels = copy.deepcopy([data['targets'][i] for i in self.idx])
         self.adj_list = copy.deepcopy([data['adj_list'][i] for i in self.idx])
         self.features_onehot = copy.deepcopy([data['features_onehot'][i] for i in self.idx])
+        self.max_neighbor_list = copy.deepcopy([data['max_neighbor_list'][i] for i in self.idx])
+        if self.random_walk:
+            self.random_walks = copy.deepcopy([data['random_walks'][i] for i in self.idx])
         
         if n_graph_subsampling:
-            self.adj_list, self.features_onehot, self.labels = graph_dataset_subsampling(self.adj_list,
+            self.adj_list, self.features_onehot, self.labels, self.max_neighbor_list = graph_dataset_subsampling(self.adj_list,
                                                                                    self.features_onehot, 
                                                                                    self.labels,
+                                                                                   self.max_neighbor_list,
                                                                                    rate=graph_subsampling_rate,
                                                                                    repeat_count=n_graph_subsampling,
                                                                                    node_removal=graph_node_subsampling,
@@ -250,7 +340,7 @@ class GraphData(torch.utils.data.Dataset):
         
         print('%s: %d/%d' % (split.upper(), len(self.labels), len(data['targets'])))
         
-        # sample indices for this epoch
+        # Sample indices for this epoch
         if n_graph_subsampling:
             self.indices = np.arange(len(self.idx) * n_graph_subsampling)  
         else:
@@ -258,12 +348,17 @@ class GraphData(torch.utils.data.Dataset):
         
     def pad(self, mtx, desired_dim1, desired_dim2=None, value=0):
         sz = mtx.shape
-        assert len(sz) == 2, ('only 2d arrays are supported', sz)
-        # if np.all(np.array(sz) < desired_dim1 / 3): print('matrix shape is suspiciously small', sz, desired_dim1)
-        if desired_dim2 is not None:
-            mtx = np.pad(mtx, ((0, desired_dim1 - sz[0]), (0, desired_dim2 - sz[1])), 'constant', constant_values=value)
-        else:
-            mtx = np.pad(mtx, ((0, desired_dim1 - sz[0]), (0, 0)), 'constant', constant_values=value)
+        
+        #assert len(sz) == 2, ('only 2d arrays are supported', sz)
+        
+        if len(sz) == 2:
+            if desired_dim2 is not None:
+                  mtx = np.pad(mtx, ((0, desired_dim1 - sz[0]), (0, desired_dim2 - sz[1])), 'constant', constant_values=value)
+            else:
+                  mtx = np.pad(mtx, ((0, desired_dim1 - sz[0]), (0, 0)), 'constant', constant_values=value)
+        elif len(sz) == 3:
+            mtx = np.pad(mtx, ((0, desired_dim1 - sz[0]), (0, 0), (0, 0)), 'constant', constant_values=value)
+        
         return mtx
     
     def nested_list_to_torch(self, data):
@@ -274,8 +369,8 @@ class GraphData(torch.utils.data.Dataset):
                 i = keys[i]
             if isinstance(data[i], np.ndarray):
                 data[i] = torch.from_numpy(data[i]).float()
-            elif isinstance(data[i], list):
-                data[i] = list_to_torch(data[i])
+            #elif isinstance(data[i], list):
+                #data[i] = list_to_torch(data[i])
         return data
         
     def __len__(self):
@@ -287,8 +382,19 @@ class GraphData(torch.utils.data.Dataset):
         N_nodes = self.adj_list[index].shape[0]
         graph_support = np.zeros(self.N_nodes_max)
         graph_support[:N_nodes] = 1
-        return self.nested_list_to_torch([self.pad(self.features_onehot[index].copy(), self.N_nodes_max),  # node_features
-                                          self.pad(self.adj_list[index], self.N_nodes_max, self.N_nodes_max),  # adjacency matrix
-                                          graph_support,  # mask with values of 0 for dummy (zero padded) nodes, otherwise 1 
+
+        if self.random_walk:
+            return self.nested_list_to_torch([self.pad(self.features_onehot[index].copy(), self.N_nodes_max),  # Node_features
+                                          self.pad(self.adj_list[index], self.N_nodes_max, self.N_nodes_max),  # Adjacency matrix
+                                          graph_support,  # Mask with values of 0 for dummy (zero padded) nodes, otherwise 1 
                                           N_nodes,
-                                          int(self.labels[index])])  # convert to torch
+                                          int(self.labels[index]),
+                                          int(self.max_neighbor_list[index]),
+                                          self.pad(self.random_walks[index], self.N_nodes_max)])                           
+        else:
+            return self.nested_list_to_torch([self.pad(self.features_onehot[index].copy(), self.N_nodes_max),  # Node_features
+                                          self.pad(self.adj_list[index], self.N_nodes_max, self.N_nodes_max),  # Adjacency matrix
+                                          graph_support,  # Mask with values of 0 for dummy (zero padded) nodes, otherwise 1 
+                                          N_nodes,
+                                          int(self.labels[index]),
+                                          int(self.max_neighbor_list[index])])            
