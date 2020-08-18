@@ -21,10 +21,10 @@ class GAT(nn.Module):
         self.dropout = dropout
         self.readout = readout
         
-        # Graph Attention Layer
-        self.attentions = [GraphAttentionLayer(n_feat, agg_hidden, self.dropout, device) for _ in range(n_layer)]
-        for i, attention in enumerate(self.attentions):
-            self.add_module('attention_{}'.format(i), attention)
+        # Graph attention layer
+        self.graph_attention_layers = []
+        for i in range(self.n_layer):
+          self.graph_attention_layers.append(GraphAttentionLayer(n_feat, agg_hidden, dropout, device))
                     
         # Fully-connected layer
         self.fc1 = nn.Linear(agg_hidden*n_layer, fc_hidden)
@@ -36,8 +36,8 @@ class GAT(nn.Module):
         # Dropout        
         x = F.dropout(x, p=self.dropout, training=self.training)
         
-        # Graph Attention Layer
-        x = torch.cat([att(x, adj) for att in self.attentions], dim=2)
+        # Graph attention layer
+        x = torch.cat([F.relu(att(x, adj)) for att in self.graph_attention_layers], dim=2)
 
         # Readout
         x = readout_function(x, self.readout)
@@ -52,7 +52,7 @@ class GAT(nn.Module):
         layers = ''
         
         for i in range(self.n_layer):
-            layers += str(self.attentions[i]) + '\n'
-        layers += str(self.fc1)
-        layers += str(self.fc2)
+            layers += str(self.graph_attention_layers[i]) + '\n'
+        layers += str(self.fc1) + '\n'
+        layers += str(self.fc2) + '\n'
         return layers
