@@ -1,24 +1,22 @@
 import math
 
 import torch
-from torch.nn.parameter import Parameter
-from torch.nn.modules.module import Module
+import torch.nn as nn
 
 """
 References: https://github.com/tkipf/pygcn
 """
 
-class GraphConvolutionLayer(Module):
-
+class GraphConvolutionLayer(nn.Module):
     def __init__(self, in_features, out_features, device, bias=True):
         super(GraphConvolutionLayer, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
         
         # Weight
-        self.weight = Parameter(torch.FloatTensor(in_features, out_features)).to(device)
+        self.weight = nn.Parameter(torch.FloatTensor(in_features, out_features)).to(device)
         if bias:
-            self.bias = Parameter(torch.FloatTensor(out_features)).to(device)
+            self.bias = nn.Parameter(torch.FloatTensor(out_features)).to(device)
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
