@@ -1,9 +1,9 @@
-<div>
-  <img src="https://user-images.githubusercontent.com/52263269/90756166-01aba300-e317-11ea-8212-968b688463da.png" width="90%"></img>
-</div>
-
 Description
 =============
+
+<div>
+  <img src="https://user-images.githubusercontent.com/52263269/90756609-8f878e00-e317-11ea-8bde-f0d56b6a3b6c.png" width="90%"></img>
+</div>
 
 #### - Graph Neural Networks (GNNs) for Graph Classification
   - Implementation of various neural graph classification model (not node classification)
