@@ -2,7 +2,7 @@ Description
 =============
 
 <div>
-  <img src="https://user-images.githubusercontent.com/52263269/90756609-8f878e00-e317-11ea-8bde-f0d56b6a3b6c.png" width="90%"></img>
+  <img src="https://user-images.githubusercontent.com/52263269/90756700-a6c67b80-e317-11ea-8c6f-d5ad2a77f03c.png" width="90%"></img>
 </div>
 
 #### - Graph Neural Networks (GNNs) for Graph Classification
