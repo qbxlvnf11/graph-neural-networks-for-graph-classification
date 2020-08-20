@@ -8,6 +8,12 @@ Description
 #### - Graph Neural Networks (GNNs) for Graph Classification
   - Implementation of various neural graph classification model (not node classification)
   - Training and test of various Graph Neural Networks (GNNs) models using graph classification datasets
+  - Input graph: graph adjacency matrix, graph node features matrix
+  - Graph classification model (graph aggregating)
+    - Get latent graph node featrue matrix
+    - GCN, GAT, GIN, ...
+  - Readout: transforming each latent node feature to one dimension vector for graph classification
+  - Feature modeling: fully-connected layer
 
 How to use
 =============
