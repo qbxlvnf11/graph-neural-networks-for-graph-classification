@@ -21,11 +21,11 @@ class DataReader():
     def __init__(self,
                  data_dir,  # Folder with txt files
                  random_walk,
-                 node2vec_hidden=64,
-                 walk_length=20,
-                 num_walks=10,
-                 p=0.65,
-                 q=0.35,
+                 node2vec_hidden,
+                 walk_length,
+                 num_walk,
+                 p,
+                 q,
                  workers=3,
                  rnd_state=None,
                  use_cont_node_attr=False,  # Use or not additional float valued node attributes available in some datasets
@@ -45,6 +45,21 @@ class DataReader():
         data['adj_list'] = self.read_graph_adj(list(filter(lambda f: f.find('_A') >= 0, files))[0], nodes, graphs)        
                 
         print('complete to build adjacency matrix list')
+        
+        # Make node count list
+        data['node_count_list'] = self.get_node_count_list(data['adj_list'])
+        
+        print('complete to build node count list')
+
+        # Make edge matrix list
+        data['edge_matrix_list'], data['max_edge_matrix'] = self.get_edge_matrix_list(data['adj_list'])
+        
+        print('complete to build edge matrix list')
+
+        # Make node count list
+        data['edge_matrix_count_list'] = self.get_edge_matrix_count_list(data['edge_matrix_list'])
+        
+        print('complete to build edge matrix count list')
         
         # Make degree_features and max neighbor list
         degree_features = self.get_node_features_degree(data['adj_list'])
@@ -150,11 +165,16 @@ class DataReader():
         data['N_nodes_max'] = np.max(shapes)  # Max number of nodes
         data['features_dim'] = features_dim
         data['n_classes'] = n_classes
+
+        # Make neighbor dictionary
+        #data['neighbor_dic_list'] = self.get_neighbor_dic_list(data['adj_list'], data['N_nodes_max'])
+        
+        #print('complete to build neighbor dictionary list')
         
         # Make node randomwalk
         if random_walk:
             print('building node randomwalk list ...')
-            data['random_walks'] = get_node_random_walk(data['features_onehot'], data['adj_list'], node2vec_hidden, walk_length, num_walks, p, q, workers)
+            data['random_walks'] = get_node_random_walk(data['features_onehot'], data['adj_list'], node2vec_hidden, walk_length, num_walk, p, q, workers)
             print('complete to build node randomwalk list')
         
         self.data = data
@@ -247,56 +267,52 @@ class DataReader():
 
         return max_neighbor_list
 
-    def get_node_random_walk(self, x_list, adj_list):
-        node_random_walk_list = []
+    def get_node_count_list(self, adj_list):
+        node_count_list = []
         
-        for i, adj in enumerate(adj_list):
-            
-            if i % 20 == 0:
-                print('node_random_walk: ', i)
-            
-            node_random_walk_list2 = []
-            
-            walk_dic = {}
-            G = nx.Graph(adj)
-            
-            node2vec = Node2Vec(graph=G, # The first positional argument has to be a networkx graph. Node names must be all integers or all strings. On the output model they will always be strings.
-                        dimensions=self.node2vec_hidden, # Embedding dimensions (default: 128)
-                        walk_length=self.walk_length, # number of nodes in each walks 
-                        num_walks=2, # Number of walks per node (default: 10)
-                        p=self.p, # 전 꼭짓점으로 돌아올 가능성, 얼마나 주변을 잘 탐색하는가
-                        q=self.q, # 전 꼭짓점으로부터 멀어질 가능성, 얼마나 새로운 곳을 잘 탐색하는가
-                        weight_key=None, # On weighted graphs, this is the key for the weight attribute (default: 'weight')
-                        workers=self.workers, # Number of workers for parallel execution (default: 1)
-                        quiet = True
-                       )
+        for adj in adj_list:
+            node_count_list.append(len(adj))
+                        
+        return node_count_list
 
-            # Dic key: target node number, dic value: random walks of target node
-            for random_walk in node2vec.walks:
-                if not int(random_walk[0]) in walk_dic:
-                    walk_dic[int(random_walk[0])] = []
-                walk_dic[int(random_walk[0])].append(random_walk)
-            
-            # Get index of one value in one-hot vector
-            hot_index = np.where(x_list[i] == 1.0)[1]
-            
-            # Unify to Node Feature
-            for a in range(len(adj)):
-                walks = walk_dic[a]
-                walks_list = []
-                for walk in walks:
-                    walk2 = []
-                    for node in walk:
-                        if not int(node) >= len(hot_index):
-                            walk2.append(float(hot_index[int(node)]))
-                
-                    # Padding and append
-                    walks_list.append([0.0] * (self.walk_length - len(walk2)) + walk2)
+    def get_edge_matrix_list(self, adj_list):
+        edge_matrix_list = []
+        max_edge_matrix = 0
+        
+        for adj in adj_list:
+            edge_matrix = []
+            for i in range(len(adj)):
+                for j in range(len(adj[0])):
+                    if adj[i][j] == 1:
+                        edge_matrix.append((i,j))
+            if len(edge_matrix) > max_edge_matrix:
+                max_edge_matrix = len(edge_matrix)
+            edge_matrix_list.append(np.array(edge_matrix))
+                        
+        return edge_matrix_list, max_edge_matrix
 
-                node_random_walk_list2.append(np.array(walks_list))
-            node_random_walk_list.append(np.array(node_random_walk_list2))
-            
-        return node_random_walk_list
+    def get_edge_matrix_count_list(self, edge_matrix_list):
+        edge_matrix_count_list = []
+        
+        for edge_matrix in edge_matrix_list:
+            edge_matrix_count_list.append(len(edge_matrix))
+                        
+        return edge_matrix_count_list
+    
+    def get_neighbor_dic_list(self, adj_list, N_nodes_max):
+        neighbor_dic_list = []
+        
+        for adj in adj_list:
+            neighbors = []
+            for i, row in enumerate(adj):
+                idx = np.where(row == 1.0)[0].tolist()
+                idx = np.pad(idx, (0, N_nodes_max - len(idx)), 'constant', constant_values=0)
+                neighbors.append(idx)
+            for a in range(i, N_nodes_max - 1):
+                neighbors.append(np.array([0]*136))
+            neighbor_dic_list.append(np.array(neighbors))
+        
+        return neighbor_dic_list    
 
 class GraphData(torch.utils.data.Dataset):
     def __init__(self,
@@ -315,21 +331,26 @@ class GraphData(torch.utils.data.Dataset):
     def set_fold(self, data, split, fold_id, n_graph_subsampling, graph_node_subsampling, graph_subsampling_rate):
         self.total = len(data['targets'])
         self.N_nodes_max = data['N_nodes_max']
+        self.max_edge_matrix = data['max_edge_matrix']
         self.n_classes = data['n_classes']
         self.features_dim = data['features_dim']
         self.idx = data['splits'][fold_id][split]
-        
         
         # Use deepcopy to make sure we don't alter objects in folds
         self.labels = copy.deepcopy([data['targets'][i] for i in self.idx])
         self.adj_list = copy.deepcopy([data['adj_list'][i] for i in self.idx])
         self.features_onehot = copy.deepcopy([data['features_onehot'][i] for i in self.idx])
         self.max_neighbor_list = copy.deepcopy([data['max_neighbor_list'][i] for i in self.idx])
+        self.edge_matrix_list = copy.deepcopy([data['edge_matrix_list'][i] for i in self.idx])
+        self.node_count_list = copy.deepcopy([data['node_count_list'][i] for i in self.idx])
+        self.edge_matrix_count_list = copy.deepcopy([data['edge_matrix_count_list'][i] for i in self.idx])
+        #self.neighbor_dic_list = copy.deepcopy([data['neighbor_dic_list'][i] for i in self.idx])
+        
         if self.random_walk:
             self.random_walks = copy.deepcopy([data['random_walks'][i] for i in self.idx])
         
         if n_graph_subsampling:
-            self.adj_list, self.features_onehot, self.labels, self.max_neighbor_list = graph_dataset_subsampling(self.adj_list,
+            self.adj_list, self.features_onehot, self.labels, self.max_neighbor_list, self.neighbor_dic_list = graph_dataset_subsampling(self.adj_list,
                                                                                    self.features_onehot, 
                                                                                    self.labels,
                                                                                    self.max_neighbor_list,
@@ -346,9 +367,8 @@ class GraphData(torch.utils.data.Dataset):
         else:
             self.indices = np.arange(len(self.idx))
         
-    def pad(self, mtx, desired_dim1, desired_dim2=None, value=0):
+    def pad(self, mtx, desired_dim1, desired_dim2=None, value=0, mode='edge_matrix'):
         sz = mtx.shape
-        
         #assert len(sz) == 2, ('only 2d arrays are supported', sz)
         
         if len(sz) == 2:
@@ -362,11 +382,11 @@ class GraphData(torch.utils.data.Dataset):
         return mtx
     
     def nested_list_to_torch(self, data):
-        if isinstance(data, dict):
-            keys = list(data.keys())           
+        #if isinstance(data, dict):
+            #keys = list(data.keys())           
         for i in range(len(data)):
-            if isinstance(data, dict):
-                i = keys[i]
+            #if isinstance(data, dict):
+                #i = keys[i]
             if isinstance(data[i], np.ndarray):
                 data[i] = torch.from_numpy(data[i]).float()
             #elif isinstance(data[i], list):
@@ -382,7 +402,7 @@ class GraphData(torch.utils.data.Dataset):
         N_nodes = self.adj_list[index].shape[0]
         graph_support = np.zeros(self.N_nodes_max)
         graph_support[:N_nodes] = 1
-
+        
         if self.random_walk:
             return self.nested_list_to_torch([self.pad(self.features_onehot[index].copy(), self.N_nodes_max),  # Node_features
                                           self.pad(self.adj_list[index], self.N_nodes_max, self.N_nodes_max),  # Adjacency matrix
@@ -390,11 +410,14 @@ class GraphData(torch.utils.data.Dataset):
                                           N_nodes,
                                           int(self.labels[index]),
                                           int(self.max_neighbor_list[index]),
-                                          self.pad(self.random_walks[index], self.N_nodes_max)])                           
+                                          self.pad(self.random_walks[index])])                           
         else:
             return self.nested_list_to_torch([self.pad(self.features_onehot[index].copy(), self.N_nodes_max),  # Node_features
                                           self.pad(self.adj_list[index], self.N_nodes_max, self.N_nodes_max),  # Adjacency matrix
                                           graph_support,  # Mask with values of 0 for dummy (zero padded) nodes, otherwise 1 
                                           N_nodes,
                                           int(self.labels[index]),
-                                          int(self.max_neighbor_list[index])])            
+                                          int(self.max_neighbor_list[index]),
+                                          self.pad(self.edge_matrix_list[index], self.max_edge_matrix),
+                                          int(self.node_count_list[index]),
+                                          int(self.edge_matrix_count_list[index])])            

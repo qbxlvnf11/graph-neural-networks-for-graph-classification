@@ -2,8 +2,13 @@ import networkx as nx
 from node2vec import Node2Vec
 import numpy as np
 
-def get_node_random_walk(x_list, adj_list, node2vec_hidden, walk_length, num_walks, p, q, workers):
+def get_node_random_walk(x_list, adj_list, node2vec_hidden, walk_length, num_walk, p, q, workers):
     node_random_walk_list = []
+    
+    print('walk_length:', walk_length)
+    print('num_walk:', num_walk)
+    print('p:', p)
+    print('q:', q)
     
     for i, adj in enumerate(adj_list):
     
@@ -19,7 +24,7 @@ def get_node_random_walk(x_list, adj_list, node2vec_hidden, walk_length, num_wal
         node2vec = Node2Vec(graph=G, # The first positional argument has to be a networkx graph. Node names must be all integers or all strings. On the output model they will always be strings.
                     dimensions=node2vec_hidden, # Embedding dimensions (default: 128)
                     walk_length=walk_length, # number of nodes in each walks 
-                    num_walks=2, # Number of walks per node (default: 10)
+                    num_walks=num_walk, # Number of walks per node (default: 10)
                     p=p, # 전 꼭짓점으로 돌아올 가능성, 얼마나 주변을 잘 탐색하는가
                     q=q, # 전 꼭짓점으로부터 멀어질 가능성, 얼마나 새로운 곳을 잘 탐색하는가
                     weight_key=None, # On weighted graphs, this is the key for the weight attribute (default: 'weight')
