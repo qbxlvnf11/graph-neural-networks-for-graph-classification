@@ -28,15 +28,15 @@ Contents
 
 #### - Available Model
   - Graph Convolutional Networks (GCNs): https://arxiv.org/abs/1609.02907
+  - GraphSAGE: https://arxiv.org/pdf/1810.05997.pdf
+  - Simple Graph Convolutional Networks (SGCNs): https://arxiv.org/pdf/1902.07153.pdf
   - Graph Attention Networks (GATs): https://arxiv.org/abs/1710.10903
   - Graph UNet: https://arxiv.org/pdf/1905.05178.pdf
-  - Graph ResNet
-  - Graph DenseNet
-  - Simple Graph Convolutional Networks (SGCNs): https://arxiv.org/pdf/1902.07153.pdf
-  - GraphSAGE: https://arxiv.org/pdf/1810.05997.pdf
   - Approximate Personalized Propagation of Neural Predictions (APPNP): https://arxiv.org/pdf/1810.05997.pdf
   - Graph Isomorphism Networks (GINs): https://arxiv.org/pdf/1810.00826.pdf
   - Graph Neural Networks with Convolutional ARMA Filters: https://arxiv.org/pdf/1901.01343.pdf
+  - Graph ResNet
+  - Graph DenseNet
   - Node RandomWalk Network
   - Expanded Spatial Graph Embedding Network
   
